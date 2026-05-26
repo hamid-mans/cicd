@@ -1,29 +1,35 @@
 pipeline {
-    agent any // On utilise l'agent Jenkins par défaut partout
+    agent none // On ne bloque pas d'agent globalement
 
     stages {
         stage('Checkout') {
+            agent any
             steps {
                 checkout scm
             }
         }
 
         stage('PHP Unit Tests') {
+            agent {
+                docker {
+                    image 'composer:2'
+                    // On force l'exécution en utilisateur root pour éviter les conflits de droits sur les fichiers clonés
+                    args '-u root'
+                }
+            }
             steps {
-                echo 'Exécution des tests via un conteneur éphémère...'
+                echo 'Installation des dépendances PHP...'
+                sh 'composer install --no-interaction --prefer-dist'
 
-                // On monte le dossier de travail actuel dans un conteneur composer officiel
-                // -v ${WORKSPACE}:/app : partage le code avec le conteneur
-                // -w /app : définit le dossier de travail dans le conteneur
-                // --rm : supprime le conteneur dès qu'il a fini
-
-                sh 'docker run --rm -v ${WORKSPACE}:/app -w /app composer:2 sh -c "composer install --no-interaction && vendor/bin/phpunit"'
+                echo 'Exécution des tests PHPUnit...'
+                sh 'vendor/bin/phpunit'
             }
         }
 
         stage('Deploy') {
+            agent any
             steps {
-                echo 'Prêt pour le déploiement manuel dès que les tests passent !'
+                echo 'Prêt pour le déploiement !'
             }
         }
     }
